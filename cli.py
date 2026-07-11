@@ -163,24 +163,52 @@ class TerminalReader:
 
     # ---------- 历史 ----------
     def cmd_history(self) -> None:
-        rows = self.history.list_recent()
-        if not rows:
-            print("暂无阅读历史。")
-            return
-        print()
-        for i, h in enumerate(rows, 1):
-            print(f"  [{i:>2}] {h.book_title} · 读到「{h.last_chapter_title}」"
-                  f"({h.last_index + 1})  [{h.source}]")
-        h = self._choose(rows, "选择历史编号继续阅读（回车取消）：")
-        if not h:
-            return
-        src = self.sources.get(h.source)
-        if not src:
-            print(f"适配器 {h.source} 未注册，请先搜索该源。")
-            return
-        book = Book(source=h.source, book_id=h.book_key.split(":", 1)[1],
-                    title=h.book_title, author=h.author)
-        self.open_book(book, start_index=h.last_index, top_line=h.scroll_pos)
+        while True:
+            rows = self.history.list_recent()
+            if not rows:
+                print("暂无阅读历史。")
+                return
+            print()
+            for i, h in enumerate(rows, 1):
+                print(f"  [{i:>2}] {h.book_title} · 读到「{h.last_chapter_title}」"
+                      f"({h.last_index + 1})  [{h.source}]")
+            try:
+                raw = input(
+                    "编号=继续阅读 · d 编号=删除 · dall=清空 · 回车=返回 > "
+                ).strip()
+            except (EOFError, KeyboardInterrupt):
+                return
+            if not raw:
+                return
+
+            low = raw.lower()
+            if low == "dall":
+                self.history.clear()
+                print("已清空全部阅读历史。")
+                return
+            if low.startswith("d"):
+                num = raw[1:].strip()
+                if num.isdigit() and 1 <= int(num) <= len(rows):
+                    h = rows[int(num) - 1]
+                    self.history.delete(h.book_key)
+                    print(f"已删除「{h.book_title}」的历史。")
+                else:
+                    print("用法：d <编号>")
+                continue
+
+            if raw.isdigit() and 1 <= int(raw) <= len(rows):
+                h = rows[int(raw) - 1]
+                src = self.sources.get(h.source)
+                if not src:
+                    print(f"适配器 {h.source} 未注册，请先搜索该源。")
+                    continue
+                book = Book(source=h.source, book_id=h.book_key.split(":", 1)[1],
+                            title=h.book_title, author=h.author)
+                self.open_book(book, start_index=h.last_index,
+                               top_line=h.scroll_pos)
+                return
+
+            print("无效输入。")
 
     @staticmethod
     def _choose(items: list, prompt: str):

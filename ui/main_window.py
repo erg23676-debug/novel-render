@@ -78,6 +78,8 @@ class MainWindow(QWidget):
 
         self.hist_list = QListWidget()
         self.hist_list.itemDoubleClicked.connect(self.open_history)
+        self.hist_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.hist_list.customContextMenuRequested.connect(self._hist_context_menu)
 
         tabs = QTabWidget()
         tabs.addTab(self.result_list, "搜索结果")
@@ -255,6 +257,37 @@ class MainWindow(QWidget):
             )
             item.setData(Qt.ItemDataRole.UserRole, h)
             self.hist_list.addItem(item)
+
+    def _hist_context_menu(self, pos) -> None:
+        item = self.hist_list.itemAt(pos)
+        menu = QMenu(self)
+        open_action = del_action = None
+        if item is not None and item.data(Qt.ItemDataRole.UserRole) is not None:
+            open_action = menu.addAction("📖 继续阅读")
+            del_action = menu.addAction("🗑 删除此记录")
+            menu.addSeparator()
+        clear_action = menu.addAction("🧹 清空全部历史")
+        action = menu.exec(self.hist_list.mapToGlobal(pos))
+        if action is None:
+            return
+        if action == open_action:
+            self.open_history(item)
+        elif action == del_action:
+            h = item.data(Qt.ItemDataRole.UserRole)
+            self.history.delete(h.book_key)
+            self.refresh_history()
+        elif action == clear_action:
+            self._clear_history()
+
+    def _clear_history(self) -> None:
+        if self.hist_list.count() == 0:
+            return
+        if QMessageBox.question(
+            self, "清空历史",
+            "确定要删除全部阅读历史吗？此操作不可恢复。",
+        ) == QMessageBox.StandardButton.Yes:
+            self.history.clear()
+            self.refresh_history()
 
     def open_history(self, item: QListWidgetItem) -> None:
         h = item.data(Qt.ItemDataRole.UserRole)

@@ -79,6 +79,11 @@ class History:
         self.conn.execute("DELETE FROM history WHERE book_key=?", (book_key,))
         self.conn.commit()
 
+    def clear(self) -> None:
+        """清空全部阅读历史。"""
+        self.conn.execute("DELETE FROM history")
+        self.conn.commit()
+
     @staticmethod
     def _row(r: sqlite3.Row) -> HistoryEntry:
         return HistoryEntry(
