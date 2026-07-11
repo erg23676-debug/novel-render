@@ -54,11 +54,20 @@ def _wrap_line(line: str, width: int) -> list[str]:
     return out
 
 
-def _render(body: str, width: int) -> list[str]:
-    """把整章正文渲染成一屏宽度内的可见行列表。"""
+def _render(body: str, width: int, line_gap: int = 0) -> list[str]:
+    """把整章正文渲染成一屏宽度内的可见行列表。
+
+    line_gap>0 时在每行之间插入空行，等效于加大行距，减少看错行 / 串行。
+    """
     lines: list[str] = []
     for para in body.split("\n"):
         lines.extend(_wrap_line(para, width))
+    if line_gap > 0:
+        spaced: list[str] = []
+        for ln in lines:
+            spaced.append(ln)
+            spaced.extend([""] * line_gap)
+        lines = spaced
     return lines or [""]
 
 
@@ -78,6 +87,7 @@ class TerminalReader:
     def __init__(self) -> None:
         self.session = Session()
         self.history = History()
+        self._line_gap = 1  # 行间空行数（0/1/2），加大可减少看错行
         self.sources: dict[str, object] = {
             "local": LocalTxtSource(),
             "epub": EpubSource(),
@@ -122,7 +132,7 @@ class TerminalReader:
             "  h                   帮助\n"
             "  q                   退出\n"
             "阅读界面按键：↑/↓ 或 j/k 滚动 · 空格/b 翻页 · n/p 下/上一章 · "
-            "t 目录 · g 跳章 · q 返回\n"
+            "t 目录 · g 跳章 · l 行距 · q 返回\n"
         )
 
     # ---------- 搜索 ----------
@@ -281,7 +291,7 @@ class TerminalReader:
                     body = f"加载失败：{e}"
                 except Exception as e:  # noqa: BLE001
                     body = f"加载失败：{e}"
-                lines = _render(body, col)
+                lines = _render(body, col, self._line_gap)
                 loaded = cur
                 self._save(book, ch, top)
 
@@ -300,7 +310,7 @@ class TerminalReader:
                 stdscr.addstr(row + 1, 2, _clip(lines[i], col))
             pct = 100 if len(lines) <= page else int(top / max_top * 100)
             foot = (f" {pct:>3}% │ ↑↓/jk 滚动 · 空格翻页 · n/p 章 · "
-                    f"t 目录 · g 跳章 · q 返回")
+                    f"t 目录 · l 行距({self._line_gap}) · q 返回")
             stdscr.addstr(h - 1, 0, _clip(foot, w - 1), curses.A_REVERSE)
             stdscr.refresh()
 
@@ -335,6 +345,11 @@ class TerminalReader:
                 top = 0
             elif k == curses.KEY_END:
                 top = max_top
+            elif k == ord("l"):                           # 循环切换行距 0/1/2
+                logical = top // (1 + self._line_gap)      # 当前顶行的原始行号
+                self._line_gap = (self._line_gap + 1) % 3
+                top = logical * (1 + self._line_gap)        # 换算回新行距下的位置
+                loaded = -1                                 # 强制按新行距重排
             elif k in (ord("g"), ord("t")):               # 跳章 / 目录
                 sel = self._toc_curses(stdscr, chapters, cur)
                 if sel is not None:

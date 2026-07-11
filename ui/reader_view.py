@@ -29,6 +29,7 @@ class ReaderView(QWidget):
         self.chapters: list[Chapter] = []
         self.cur = 0
         self._font_size = 18
+        self._line_height = 185  # 行距百分比，越大越不易串行
         self._dark = True
 
         # —— 顶部：章节标题 + 进度 + 字号
@@ -44,6 +45,15 @@ class ReaderView(QWidget):
         self.font_spin.setFixedWidth(74)
         self.font_spin.valueChanged.connect(self._on_font)
 
+        self.line_spin = QSpinBox()
+        self.line_spin.setRange(130, 260)
+        self.line_spin.setSingleStep(5)
+        self.line_spin.setValue(self._line_height)
+        self.line_spin.setSuffix(" %")
+        self.line_spin.setFixedWidth(74)
+        self.line_spin.setToolTip("行距：调大可减少看错行 / 串行")
+        self.line_spin.valueChanged.connect(self._on_line_height)
+
         header = QWidget()
         header.setObjectName("ReaderHeader")
         htop = QHBoxLayout(header)
@@ -55,6 +65,8 @@ class ReaderView(QWidget):
         htop.addLayout(title_col, 1)
         htop.addWidget(QLabel("字号"))
         htop.addWidget(self.font_spin)
+        htop.addWidget(QLabel("行距"))
+        htop.addWidget(self.line_spin)
 
         # —— 正文
         self.text = QTextBrowser()
@@ -102,13 +114,14 @@ class ReaderView(QWidget):
         self._apply_block_format()
 
     def _apply_block_format(self) -> None:
-        """行距 160%、段间距、首行缩进两字符——用块格式实现，避免 Qt CSS 限制。"""
+        """可调行距、段间距、首行缩进两字符——用块格式实现，避免 Qt CSS 限制。"""
         doc = self.text.document()
         cursor = QTextCursor(doc)
         cursor.select(QTextCursor.SelectionType.Document)
         bf = QTextBlockFormat()
         bf.setLineHeight(
-            160, QTextBlockFormat.LineHeightTypes.ProportionalHeight.value
+            self._line_height,
+            QTextBlockFormat.LineHeightTypes.ProportionalHeight.value,
         )
         bf.setTopMargin(4)
         bf.setBottomMargin(10)
@@ -118,6 +131,10 @@ class ReaderView(QWidget):
     def _on_font(self, v: int) -> None:
         self._font_size = v
         self._apply_font()
+
+    def _on_line_height(self, v: int) -> None:
+        self._line_height = v
+        self._apply_block_format()
 
     def _update_margins(self) -> None:
         """让正文列居中限宽。"""
