@@ -1,0 +1,16 @@
+# 构建产物（PyInstaller / pkgbuild，体积大、可重新生成）
+packaging/build/
+packaging/dist/
+packaging/pkgroot/
+packaging/*.spec
+
+# Python
+__pycache__/
+*.py[cod]
+
+# 用户数据（阅读历史，本机私有）
+reader.db
+
+# 本地设置 / 系统文件
+.claude/settings.local.json
+.DS_Store

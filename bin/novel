@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# 小说阅读器全局启动器。
+#   novel          终端版（默认）
+#   novel --gui    桌面 GUI
+#   novel <参数>   透传给 main.py
+set -euo pipefail
+
+# 项目根目录 = 本脚本所在目录的上一级（跟随符号链接解析真实路径）
+SRC="${BASH_SOURCE[0]}"
+while [ -h "$SRC" ]; do
+  DIR="$(cd -P "$(dirname "$SRC")" && pwd)"
+  SRC="$(readlink "$SRC")"
+  [[ "$SRC" != /* ]] && SRC="$DIR/$SRC"
+done
+ROOT="$(cd -P "$(dirname "$SRC")/.." && pwd)"
+
+PY="$(command -v python3 || true)"
+[ -z "$PY" ] && { echo "未找到 python3" >&2; exit 1; }
+
+if [ "${1:-}" = "--gui" ]; then
+  shift
+  exec "$PY" "$ROOT/main.py" "$@"
+else
+  # 无参数或其它参数 -> 终端版
+  if [ "$#" -eq 0 ]; then
+    exec "$PY" "$ROOT/main.py" --tui
+  else
+    exec "$PY" "$ROOT/main.py" "$@"
+  fi
+fi
