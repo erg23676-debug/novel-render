@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QApplication, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
+    QApplication, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMenu, QMessageBox, QPushButton, QSplitter, QTabWidget,
     QVBoxLayout, QWidget,
 )
@@ -11,7 +11,6 @@ from PyQt6.QtWidgets import (
 from core.session import Session
 from core.sources.epub_book import EpubSource
 from core.sources.local_txt import LocalTxtSource
-from core.sources.website_dynamic import register_domain_source
 from core.sources.website_qimao import register_qimao
 from db.history import History
 from models import Book
@@ -43,7 +42,7 @@ class MainWindow(QWidget):
         # —— 侧栏顶部：搜索框 + 主搜索按钮
         self.search_box = QLineEdit()
         self.search_box.setObjectName("SearchBox")
-        self.search_box.setPlaceholderText("🔍  搜索书名，或粘贴小说 URL…")
+        self.search_box.setPlaceholderText("🔍  搜索书名（本地 + 七猫在线）…")
         self.search_box.setClearButtonEnabled(True)
         self.search_box.returnPressed.connect(self.do_search)
         search_btn = QPushButton("搜索")
@@ -56,12 +55,7 @@ class MainWindow(QWidget):
         search_row.addWidget(self.search_box, 1)
         search_row.addWidget(search_btn)
 
-        # —— 图标工具栏：Cookie / 主题
-        cookie_btn = QPushButton("🔑")
-        cookie_btn.setObjectName("IconBtn")
-        cookie_btn.setToolTip("设置 Cookie（登录态）")
-        cookie_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        cookie_btn.clicked.connect(self.set_cookie)
+        # —— 图标工具栏：主题
         self.dark_btn = QPushButton("🌙")
         self.dark_btn.setObjectName("IconBtn")
         self.dark_btn.setToolTip("切换日间 / 夜间")
@@ -71,7 +65,6 @@ class MainWindow(QWidget):
         tools_row = QHBoxLayout()
         tools_row.setSpacing(4)
         tools_row.addStretch(1)
-        tools_row.addWidget(cookie_btn)
         tools_row.addWidget(self.dark_btn)
 
         # —— 侧栏标签页
@@ -149,32 +142,14 @@ class MainWindow(QWidget):
         if not kw:
             return
 
-        is_url = kw.startswith("http://") or kw.startswith("https://")
         books: list[Book] = []
         errors = []
 
-        if is_url:
-            source_name = register_domain_source(self.session, self.sources, kw)
-            if source_name:
-                src = self.sources[source_name]
-                try:
-                    books = src.search(kw)
-                except Exception as e:
-                    errors.append(f"{source_name}: {e}")
-                if books:
-                    QMessageBox.information(
-                        self, "网站源已注册",
-                        f"已自动注册 {source_name}，将尝试解析书籍信息。\n"
-                        f"如需 Cookie 登录态请点击「设置 Cookie」。",
-                    )
-            else:
-                errors.append("无法解析 URL，请检查格式")
-        else:
-            for name, src in self.sources.items():
-                try:
-                    books.extend(src.search(kw))
-                except Exception as e:
-                    errors.append(f"{name}: {e}")
+        for name, src in self.sources.items():
+            try:
+                books.extend(src.search(kw))
+            except Exception as e:
+                errors.append(f"{name}: {e}")
 
         self.result_list.clear()
         for b in books:
@@ -186,12 +161,7 @@ class MainWindow(QWidget):
         self.tabs.setCurrentWidget(self.result_list)
 
         if not books:
-            hint = "（无结果）"
-            if is_url:
-                hint += " 该 URL 无法解析为书籍，请确认是小说详情页/目录页的链接"
-            else:
-                hint += " 把 txt / epub 放进 library/ 目录再搜"
-            self.result_list.addItem(hint)
+            self.result_list.addItem("（无结果）换个书名，或把 txt / epub 放进 library/ 目录再搜")
 
         if errors:
             QMessageBox.warning(self, "部分源搜索出错", "\n".join(errors))
@@ -308,13 +278,3 @@ class MainWindow(QWidget):
     def toggle_dark(self) -> None:
         self._dark = not self._dark
         self._apply_theme()
-
-    # ---------- Cookie ----------
-    def set_cookie(self) -> None:
-        text, ok = QInputDialog.getMultiLineText(
-            self, "设置 Cookie",
-            "粘贴你在浏览器登录后自己的 Cookie（用于读取你已购买/解锁的章节）：",
-        )
-        if ok and text.strip():
-            self.session.set_cookie_string(text.strip())
-            QMessageBox.information(self, "已设置", "登录态已更新。")

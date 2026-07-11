@@ -1,7 +1,7 @@
 """终端版阅读器入口：python cli.py
 
 纯标准库实现（curses），复用 core / db / sources，无需 PyQt6，可在任意终端运行。
-菜单用普通行输入（搜索、粘 URL、Cookie），阅读用全屏 curses 界面（滚动 + 翻章 + 跳章）。
+菜单用普通行输入（按书名搜索），阅读用全屏 curses 界面（滚动 + 翻章 + 跳章）。
 
 无 curses（如原生 Windows）时自动降级为简单分屏 pager。
 """
@@ -18,7 +18,6 @@ from core.session import Session
 from core.source_base import ChapterLockedError, SourceError
 from core.sources.epub_book import EpubSource
 from core.sources.local_txt import LocalTxtSource
-from core.sources.website_dynamic import register_domain_source
 from core.sources.website_qimao import register_qimao
 from db.history import History
 from models import Book
@@ -106,12 +105,8 @@ class TerminalReader:
                 self.cmd_history()
             elif low in ("lib", "library"):
                 self.cmd_library()
-            elif low == "cookie":
-                self.cmd_cookie()
             elif low.startswith("s ") or low.startswith("search "):
                 self.cmd_search(cmd.split(None, 1)[1].strip())
-            elif cmd.startswith(("http://", "https://")):
-                self.cmd_search(cmd)
             else:
                 # 不带前缀直接当搜索关键词
                 self.cmd_search(cmd)
@@ -120,12 +115,10 @@ class TerminalReader:
     def _help(self) -> None:
         print(
             "命令：\n"
-            "  <关键词>            跨所有源搜索书名\n"
-            "  <小说 URL>          自动注册网站源并解析\n"
-            "  s <关键词/URL>      同上（显式搜索）\n"
+            "  <关键词>            按书名搜索（本地 + 七猫在线）\n"
+            "  s <关键词>          同上（显式搜索）\n"
             "  lib                 列出 library/ 里的本地书\n"
             "  hist                打开阅读历史\n"
-            "  cookie              设置登录态 Cookie（读取你已购买的章节）\n"
             "  h                   帮助\n"
             "  q                   退出\n"
             "阅读界面按键：↑/↓ 或 j/k 滚动 · 空格/b 翻页 · n/p 下/上一章 · "
@@ -136,32 +129,19 @@ class TerminalReader:
     def cmd_search(self, kw: str) -> None:
         if not kw:
             return
-        is_url = kw.startswith(("http://", "https://"))
         books: list[Book] = []
         errors: list[str] = []
 
-        if is_url:
-            name = register_domain_source(self.session, self.sources, kw)
-            if name:
-                try:
-                    books = self.sources[name].search(kw)
-                    if books:
-                        print(f"已自动注册网站源 {name}。")
-                except Exception as e:  # noqa: BLE001
-                    errors.append(f"{name}: {e}")
-            else:
-                errors.append("无法解析 URL，请检查格式")
-        else:
-            for n, src in self.sources.items():
-                try:
-                    books.extend(src.search(kw))
-                except Exception as e:  # noqa: BLE001
-                    errors.append(f"{n}: {e}")
+        for n, src in self.sources.items():
+            try:
+                books.extend(src.search(kw))
+            except Exception as e:  # noqa: BLE001
+                errors.append(f"{n}: {e}")
 
         for e in errors:
             print(f"  ⚠ {e}")
         if not books:
-            print("（无结果）把 txt/epub 放进 library/ 再搜，或确认 URL 是小说详情页。")
+            print("（无结果）换个书名，或把 txt/epub 放进 library/ 再搜。")
             return
         self._pick_and_open(books)
 
@@ -268,7 +248,7 @@ class TerminalReader:
                 try:
                     body = source.get_content(ch)
                 except ChapterLockedError as e:
-                    body = f"🔒 {ch.title}\n\n{e}\n\n请在主菜单用 cookie 设置登录态后重试。"
+                    body = f"🔒 {ch.title}\n\n{e}\n\n该章节为 VIP，未解锁无法阅读。"
                 except SourceError as e:
                     body = f"加载失败：{e}"
                 except Exception as e:  # noqa: BLE001
@@ -388,16 +368,6 @@ class TerminalReader:
                 parts = cmd.split()
                 if len(parts) == 2 and parts[1].isdigit():
                     cur = max(0, min(len(chapters) - 1, int(parts[1]) - 1))
-
-    def cmd_cookie(self) -> None:
-        print("粘贴浏览器登录后的 Cookie（一行，形如 a=1; b=2），回车确认：")
-        try:
-            text = input("cookie> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            return
-        if text:
-            self.session.set_cookie_string(text)
-            print("登录态已更新。")
 
 
 def main() -> None:

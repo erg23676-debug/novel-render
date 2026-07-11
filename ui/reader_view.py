@@ -163,8 +163,8 @@ class ReaderView(QWidget):
                 f"<div style='font-size:40px'>🔒</div>"
                 f"<h3>{ch.title}</h3>"
                 f"<p style='color:#c0693a'>{e}</p>"
-                f"<p style='color:{c['muted']}'>请点击工具栏「设置 Cookie」粘贴你已登录"
-                f"账号的 Cookie 后重试。程序不会绕过付费。</p></div>"
+                f"<p style='color:{c['muted']}'>该章节为 VIP，未解锁无法阅读。"
+                f"程序不会绕过付费。</p></div>"
             )
         except SourceError as e:
             self.text.setHtml(

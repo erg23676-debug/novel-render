@@ -43,10 +43,7 @@ echo "==> PyInstaller 构建 $APP_NAME.app ..."
   --hidden-import paths \
   --hidden-import core.sources.local_txt \
   --hidden-import core.sources.epub_book \
-  --hidden-import core.sources.website_dynamic \
   --hidden-import core.sources.website_qimao \
-  --hidden-import core.sources.website_template \
-  --hidden-import core.sources.canvas_decoder \
   "$ROOT/main.py"
 
 APP_PATH="$DIST/$APP_NAME.app"

@@ -19,7 +19,7 @@ from html import unescape
 import requests
 
 from core.session import Session
-from core.source_base import ChapterLockedError, DynamicWebsiteSource, SourceError
+from core.source_base import BaseSource, ChapterLockedError, SourceError
 from models import Book, Chapter
 
 SIGN_KEY = "d3dGiJc651gSQ8w1"
@@ -49,13 +49,13 @@ def _make_headers() -> dict:
     return headers
 
 
-class QimaoSource(DynamicWebsiteSource):
+class QimaoSource(BaseSource):
     """七猫中文网适配器。"""
 
     name: str = "qimao"
 
     def __init__(self, session: Session) -> None:
-        super().__init__(session, "www.qimao.com", "https://www.qimao.com")
+        super().__init__(session)
         self._chapters_cache: dict[str, list[Chapter]] = {}
         self._http = requests.Session()
         self._http.headers.update({"User-Agent": "okhttp/4.12.0"})
@@ -64,8 +64,6 @@ class QimaoSource(DynamicWebsiteSource):
 
     # ── 搜索 ──────────────────────────────────────────────────────────
     def search(self, keyword: str) -> list[Book]:
-        if keyword.startswith("http"):
-            return self._parse_url_as_book(keyword)
         try:
             resp = self.session.get(
                 "https://www.qimao.com/qimaoapi/api/search/result",
