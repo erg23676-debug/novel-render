@@ -8,7 +8,10 @@
 from __future__ import annotations
 
 import sys
+import readline  # 启用 readline 行编辑，修复退格删除不完整的问题
 import unicodedata
+import os
+import atexit
 import warnings
 
 # 屏蔽 urllib3 在旧版 macOS LibreSSL 上的启动噪音（须在导入 requests 前设置）
@@ -96,11 +99,21 @@ class TerminalReader:
 
     # ---------- 主菜单 ----------
     def run(self) -> None:
+        # 让 readline 接管输入行编辑，解决退格删除不干净的问题
+        histfile = os.path.expanduser("~/.novel_reader_history")
+        try:
+            readline.read_history_file(histfile)
+        except FileNotFoundError:
+            pass
+        readline.set_history_length(1000)
+        atexit.register(readline.write_history_file, histfile)
+        readline.parse_and_bind("tab: complete")
+
         print("📖  小说阅读器 · 终端版")
         print("复用与 GUI 相同的核心 / 历史 / 站点适配器。输入 h 查看帮助。\n")
         while True:
             try:
-                cmd = input("reader> ").strip()
+                cmd = input("reader> ")
             except (EOFError, KeyboardInterrupt):
                 print()
                 break
@@ -269,6 +282,11 @@ class TerminalReader:
     def _read_curses(self, stdscr, source, book, chapters, cur: int,
                      top_line: int) -> None:
         curses.curs_set(0)
+        if curses.has_colors():
+            curses.use_default_colors()
+            curses.init_pair(1, curses.COLOR_WHITE, -1)   # 正文白字
+            curses.init_pair(2, curses.COLOR_BLACK, -1)   # 黑字 + 默认背景（用于状态栏）
+            curses.init_pair(3, -1, curses.COLOR_BLACK)   # 默认前景 + 黑底（选中项）
         stdscr.keypad(True)
         cur = max(0, min(cur, len(chapters) - 1))
 
@@ -302,7 +320,7 @@ class TerminalReader:
             stdscr.erase()
             ch = chapters[cur]
             head = f" {ch.title}   ({cur + 1}/{len(chapters)})"
-            stdscr.addstr(0, 0, _clip(head, w - 1), curses.A_REVERSE)
+            stdscr.addstr(0, 0, _clip(head, w - 1), curses.color_pair(2) | curses.A_BOLD)
             for row in range(page):
                 i = top + row
                 if i >= len(lines):
@@ -311,7 +329,7 @@ class TerminalReader:
             pct = 100 if len(lines) <= page else int(top / max_top * 100)
             foot = (f" {pct:>3}% │ ↑↓/jk 滚动 · 空格翻页 · n/p 章 · "
                     f"t 目录 · l 行距({self._line_gap}) · q 返回")
-            stdscr.addstr(h - 1, 0, _clip(foot, w - 1), curses.A_REVERSE)
+            stdscr.addstr(h - 1, 0, _clip(foot, w - 1), curses.color_pair(2) | curses.A_BOLD)
             stdscr.refresh()
 
             k = stdscr.getch()
@@ -365,7 +383,7 @@ class TerminalReader:
             top = max(0, min(sel - page // 2, max(0, len(chapters) - page)))
             stdscr.erase()
             stdscr.addstr(0, 0, _clip(" 目录 · ↑↓ 选择 · 回车跳转 · q 返回",
-                                      w - 1), curses.A_REVERSE)
+                                      w - 1), curses.color_pair(2) | curses.A_BOLD)
             for row in range(page):
                 i = top + row
                 if i >= len(chapters):
@@ -373,7 +391,7 @@ class TerminalReader:
                 ch = chapters[i]
                 mark = "🔒 " if ch.is_vip else "   "
                 line = f"{i + 1:>4}. {mark}{ch.title}"
-                attr = curses.A_REVERSE if i == sel else curses.A_NORMAL
+                attr = curses.color_pair(3) if i == sel else curses.A_NORMAL
                 stdscr.addstr(row + 1, 1, _clip(line, w - 2), attr)
             stdscr.refresh()
             k = stdscr.getch()

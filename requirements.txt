@@ -1,3 +1,4 @@
 PyQt6>=6.6
 requests>=2.31
 parsel>=1.9
+pycryptodome>=3.20

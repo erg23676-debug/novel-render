@@ -310,6 +310,23 @@ class QimaoSource(BaseSource):
         return re.sub(r"\n{3,}", "\n\n", text).strip()
 
     def _is_vip_locked(self, html: str, chapter: Chapter) -> bool:
+        """判断章节是否被 VIP 锁定。
+        
+        不再仅靠 is_vip 标记拦截，而是通过网页内容特征判断：
+        - 如果网页中明确包含「下载APP」等锁章关键词，视为锁定
+        - 如果纯靠 is_vip 标记，可能误伤免费章节
+        """
+        # 先检查网页是否包含内容（章节正文关键词）
+        has_content = bool(re.search(r'chapterData', html))
+        
+        # 有 chapterData 且不含下载提示，说明网页能读到内容，不算锁定
+        if has_content:
+            for kw in ["下载【七猫免费小说APP】", "方式一（推荐）", "在APP内免费畅读"]:
+                if kw in html:
+                    return True
+            return False
+        
+        # 没有 chapterData，再降级检查 is_vip 标记
         if chapter.is_vip:
             return True
         if re.search(r'is_vip\s*:\s*(true|e|!0|1)', html):
