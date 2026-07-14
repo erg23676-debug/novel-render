@@ -86,6 +86,18 @@ def _clip(s: str, width: int) -> str:
     return out
 
 
+def _fit(s: str, width: int) -> str:
+    """截断到可见宽度并用空格补齐到 width，使整行高亮背景铺满。"""
+    out, w = "", 0
+    for ch in s:
+        cw = _char_width(ch)
+        if w + cw > width:
+            break
+        out += ch
+        w += cw
+    return out + " " * (width - w)
+
+
 class TerminalReader:
     def __init__(self) -> None:
         self.session = Session()
@@ -286,7 +298,6 @@ class TerminalReader:
             curses.use_default_colors()
             curses.init_pair(1, curses.COLOR_WHITE, -1)   # 正文白字
             curses.init_pair(2, curses.COLOR_BLACK, -1)   # 黑字 + 默认背景（用于状态栏）
-            curses.init_pair(3, -1, curses.COLOR_BLACK)   # 默认前景 + 黑底（选中项）
         stdscr.keypad(True)
         cur = max(0, min(cur, len(chapters) - 1))
 
@@ -391,8 +402,12 @@ class TerminalReader:
                 ch = chapters[i]
                 mark = "💎 " if ch.is_vip else "   "
                 line = f"{i + 1:>4}. {mark}{ch.title}"
-                attr = curses.color_pair(3) if i == sel else curses.A_NORMAL
-                stdscr.addstr(row + 1, 1, _clip(line, w - 2), attr)
+                if i == sel:
+                    # 反色 + 整行补齐，保证深浅主题下高亮背景都可见且铺满整行
+                    stdscr.addstr(row + 1, 1, _fit(line, w - 2),
+                                  curses.A_REVERSE | curses.A_BOLD)
+                else:
+                    stdscr.addstr(row + 1, 1, _clip(line, w - 2), curses.A_NORMAL)
             stdscr.refresh()
             k = stdscr.getch()
             if k in (curses.KEY_DOWN, ord("j")):
