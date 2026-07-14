@@ -19,7 +19,7 @@ from html import unescape
 import requests
 
 from core.session import Session
-from core.source_base import BaseSource, ChapterLockedError, SourceError
+from core.source_base import BaseSource, SourceError
 from models import Book, Chapter
 
 SIGN_KEY = "d3dGiJc651gSQ8w1"
@@ -125,23 +125,19 @@ class QimaoSource(BaseSource):
     def get_content(self, chapter: Chapter) -> str:
         book_id = chapter.book_key.split(":", 1)[1]
 
-        # 尝试: APP API 获取正文
+        # 尝试: APP API 获取正文（含 VIP 章节解密）
         try:
             text = self._fetch_content_via_api(book_id, chapter.chapter_id)
             if text:
                 return self._clean_text(text)
-        except ChapterLockedError:
-            raise
         except Exception:
             pass
 
-        # 兜底: 网页版免费章节
+        # 兜底: 网页版正文
         try:
             text = self._fetch_content_from_web(chapter)
             if text:
                 return self._clean_text(text)
-        except ChapterLockedError:
-            raise
         except Exception:
             pass
 
@@ -288,11 +284,6 @@ class QimaoSource(BaseSource):
         resp = self.session.get(url)
         html = resp.text
 
-        if self._is_vip_locked(html, chapter):
-            raise ChapterLockedError(
-                "该章节为 VIP 章节，七猫 PC 网页端不提供正文阅读。"
-            )
-
         m = re.search(r'chapterData:\s*"((?:[^"\\]|\\.)*)"', html)
         if not m:
             return ""
@@ -308,35 +299,6 @@ class QimaoSource(BaseSource):
         text = re.sub(r"<[^>]+>", "\n", raw)
         text = html_module.unescape(text)
         return re.sub(r"\n{3,}", "\n\n", text).strip()
-
-    def _is_vip_locked(self, html: str, chapter: Chapter) -> bool:
-        """判断章节是否被 VIP 锁定。
-        
-        不再仅靠 is_vip 标记拦截，而是通过网页内容特征判断：
-        - 如果网页中明确包含「下载APP」等锁章关键词，视为锁定
-        - 如果纯靠 is_vip 标记，可能误伤免费章节
-        """
-        # 先检查网页是否包含内容（章节正文关键词）
-        has_content = bool(re.search(r'chapterData', html))
-        
-        # 有 chapterData 且不含下载提示，说明网页能读到内容，不算锁定
-        if has_content:
-            for kw in ["下载【七猫免费小说APP】", "方式一（推荐）", "在APP内免费畅读"]:
-                if kw in html:
-                    return True
-            return False
-        
-        # 没有 chapterData，再降级检查 is_vip 标记
-        if chapter.is_vip:
-            return True
-        if re.search(r'is_vip\s*:\s*(true|e|!0|1)', html):
-            return True
-        if re.search(r'showDom\s*:\s*[b0]', html):
-            return True
-        for kw in ["下载【七猫免费小说APP】", "方式一（推荐）", "在APP内免费畅读"]:
-            if kw in html:
-                return True
-        return False
 
     @staticmethod
     def _clean_text(text: str) -> str:

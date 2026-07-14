@@ -389,7 +389,7 @@ class TerminalReader:
                 if i >= len(chapters):
                     break
                 ch = chapters[i]
-                mark = "🔒 " if ch.is_vip else "   "
+                mark = "💎 " if ch.is_vip else "   "
                 line = f"{i + 1:>4}. {mark}{ch.title}"
                 attr = curses.color_pair(3) if i == sel else curses.A_NORMAL
                 stdscr.addstr(row + 1, 1, _clip(line, w - 2), attr)

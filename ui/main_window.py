@@ -194,7 +194,7 @@ class MainWindow(QWidget):
     def _refresh_toc(self) -> None:
         self.toc_list.clear()
         for ch in self.chapters:
-            prefix = "🔒 " if ch.is_vip else "  "
+            prefix = "💎 " if ch.is_vip else "  "
             self.toc_list.addItem(f"{prefix}{ch.title}")
         if self.reader and self.chapters:
             self._highlight_current_toc_item()
