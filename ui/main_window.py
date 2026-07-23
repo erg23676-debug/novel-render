@@ -12,6 +12,7 @@ from core.session import Session
 from core.sources.epub_book import EpubSource
 from core.sources.local_txt import LocalTxtSource
 from core.sources.website_qimao import register_qimao
+from core.sources.website_shuqi import register_shuqi
 from db.history import History
 from models import Book
 from ui.reader_view import ReaderView
@@ -33,6 +34,7 @@ class MainWindow(QWidget):
         }
         # 自动注册内置网站源
         register_qimao(self.session, self.sources)
+        register_shuqi(self.session, self.sources)
 
         self.cur_source = None
         self.cur_book: Book | None = None
@@ -42,7 +44,7 @@ class MainWindow(QWidget):
         # —— 侧栏顶部：搜索框 + 主搜索按钮
         self.search_box = QLineEdit()
         self.search_box.setObjectName("SearchBox")
-        self.search_box.setPlaceholderText("🔍  搜索书名（本地 + 七猫在线）…")
+        self.search_box.setPlaceholderText("🔍  搜索书名（本地 + 七猫 + 书旗）…")
         self.search_box.setClearButtonEnabled(True)
         self.search_box.returnPressed.connect(self.do_search)
         search_btn = QPushButton("搜索")

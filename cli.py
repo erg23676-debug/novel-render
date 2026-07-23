@@ -22,6 +22,7 @@ from core.source_base import ChapterLockedError, SourceError
 from core.sources.epub_book import EpubSource
 from core.sources.local_txt import LocalTxtSource
 from core.sources.website_qimao import register_qimao
+from core.sources.website_shuqi import register_shuqi
 from db.history import History
 from models import Book
 
@@ -108,6 +109,7 @@ class TerminalReader:
             "epub": EpubSource(),
         }
         register_qimao(self.session, self.sources)
+        register_shuqi(self.session, self.sources)
 
     # ---------- 主菜单 ----------
     def run(self) -> None:
@@ -150,7 +152,7 @@ class TerminalReader:
     def _help(self) -> None:
         print(
             "命令：\n"
-            "  <关键词>            按书名搜索（本地 + 七猫在线）\n"
+            "  <关键词>            按书名搜索（本地 + 七猫 + 书旗）\n"
             "  s <关键词>          同上（显式搜索）\n"
             "  lib                 列出 library/ 里的本地书\n"
             "  hist                打开阅读历史\n"
